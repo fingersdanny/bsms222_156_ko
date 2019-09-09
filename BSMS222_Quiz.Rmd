@@ -1,0 +1,24 @@
+---
+output: html_notebook
+---
+
+Q1. Which function we can use to check the class for an object
+
+```{r}
+names
+```
+
+
+Q2. Please write down a command to load a csv file, called 'scores.txt' into a data frame object called 'df'
+
+```{r}
+df <- as.data.frame("scores.text")
+```
+
+
+Q3. You would like to view the column,, called 'midterm_2019' in the data frame, called 'm'. Please write down a command that you can view the first few lines your data frame.
+
+```{r}
+m <-df$midterm_2019
+```
+
