@@ -893,10 +893,7 @@ hist(murder)
 3. Generate boxplots of the state populations by region.
 
 ```{r}
-library(dslabs)
-data(murders)
-population <- murders$population
-boxplot(rate~region, data= population)
+boxplot(population~region, data = murders)
 ```
 
 

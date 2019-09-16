@@ -1,0 +1,22 @@
+---
+output: html_notebook
+---
+
+Q1. You have a data frame 'd', which contains the column 'age'. Since this column is character, you would like to convert it to numeric. Please write down a command to do this
+```{r}
+load('d')
+as.numeric(,'age')
+
+```
+
+Q2. Please write down a command to load a csv file, called 'myteam.txt' into a data frame object, called 'd'
+```{r}
+read.csv('myteam.txt')
+d<- as.data.frame('myteam.txt')
+```
+
+Q3. Please write down a command to find the max value in the column 'age' in the data frame 'd'.
+```{r}
+max(d$age)
+```
+
