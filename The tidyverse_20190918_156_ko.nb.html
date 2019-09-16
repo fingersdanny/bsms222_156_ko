@@ -2179,6 +2179,13 @@ select(state, rate, rank)</code></pre>
 </ol>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZGF0YShtdXJkZXJzKVxubXlfc3RhdGVzIDwtIG11cmRlcnMgJT4lXG4gIG11dGF0ZShyYXRlPSB0b3RhbC9wb3B1bGF0aW9uKjEwMDAwMCwgcmFuaz0gcmFuaygtcmF0ZSkpICU+JSBcbiAgZmlsdGVyKHJhbmsgJWluJSBjKFwiTm9ydGhlYXN0XCIsIFwiV2VzdFwiKSwgcmF0ZSA8MSkgJT4lIFxuICBzZWxlY3Qoc3RhdGUsIHJhdGUsIHJhbmspXG5gYGAifQ== -->
+<pre class="r"><code>data(murders)
+my_states &lt;- murders %&gt;%
+  mutate(rate= total/population*100000, rank= rank(-rate)) %&gt;% 
+  filter(rank %in% c(&quot;Northeast&quot;, &quot;West&quot;), rate &lt;1) %&gt;% 
+  select(state, rate, rank)</code></pre>
+<!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
