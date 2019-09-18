@@ -1,0 +1,22 @@
+---
+output: html_notebook
+---
+
+Q1. You have a data frame 'd', which contains the column "fruit". You want to select rows that contain "apple" in that column. Please write down a command to do this.
+
+```{r}
+select(d, fruit) %>% filter(d, apple)
+```
+
+Q2. You want to replace the character "less" with "ed" in the vector called "a". Please write down a command to do this.
+
+```{r}
+a <- gsub("less", "ed", a)
+```
+
+Q3. Please write down a command to sort values in the column 'age' in the data frame 'd'
+
+```{r}
+sort(d$age)
+```
+
