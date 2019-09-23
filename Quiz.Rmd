@@ -1,0 +1,53 @@
+---
+output: html_notebook
+---
+#1. the number of gene by each chromosome.
+```{r}
+d1 <- d %>% filter(feature_type == "gene")
+table(d1$chrom)
+```
+
+#2. compute the number of genetype.
+```{r}
+d1$gene_type <- as.character(do.call(rbind.data.frame, 
+                                     strsplit(d1$info, 'gene_type\\s+'))[[2]])
+
+d1$gene_type <- as.character(do.call(rbind.data.frame, 
+                                                    strsplit( d1$gene_type, '\\"'))[[2]])
+
+table(d1$gene_type)
+
+```
+
+## 2.1 Extra solution using 'seperate' instead of 'do.call'
+
+```{r}
+d3 = separate(d1, info, sep = '"; gene_name', into = c('gene_type', 'rest'), remove = F) %>%
+  separate(., gene_type, sep = 'gene_type "', into = c('rest', 'gene_type'), remove = F) %>%
+  select(-rest)
+table(d3$gene_type)
+```
+
+
+#3. the length of each gene categorized by each biotype
+
+```{r}
+d2 <- d1 %>% 
+  group_by(gene_type) %>% 
+  mutate(gene_length = end-start) %>%
+  select(chrom, gene_type, gene_length)
+
+head(d2)
+```
+#Gene Length rank 
+```{r}
+my_summary <- function(d2){
+  x <- quantile(d2$gene_length, c(0, 0.25, 0.5, 0.75, 1))
+  data_frame(min = x[1], Q1 = x[2], median = x[3], Q3 = x[4], max = x[5])
+}
+
+d2_chrom_quan <- d2 %>% 
+ group_by(gene_type) %>% 
+  do(my_summary(.))
+```
+
