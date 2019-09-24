@@ -1,9 +1,5 @@
 ---
 output: html_notebook
-<span class="emphasized">Pay attention to this!</span>
-.reveal section del {
-  color: red;
-}
 ---
 
 # **Chapter 8 ggplot 2**
