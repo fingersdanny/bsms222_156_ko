@@ -493,6 +493,129 @@ When using the theory we described above, it is important to remember that it is
 
 ## **15.7 Exercises**
 
+For these exercises, we will use actual polls from the 2016 election. You can load the data from the dslabs package.
+
+```{r}
+library(dslabs)
+data("polls_us_election_2016")
+```
+
+Specifically, we will use all the national polls that ended within one week before the election.
+
+```{r}
+library(tidyverse)
+polls <- polls_us_election_2016 %>% 
+  filter(enddate >= "2016-10-31" & state == "U.S.") 
+```
+
+1. For the first poll, you can obtain the samples size and estimated Clinton percentage with:
+
+```{r}
+N <- polls$samplesize[1]
+x_hat <- polls$rawpoll_clinton[1]/100
+```
+
+Assume there are only two candidates and construct a 95% confidence interval for the election night proportion p.
+
+```{r}
+se_hat <- sqrt(x_hat*(1-x_hat)/N)
+c(x_hat -1.96*se_hat, x_hat + 1.96 * se_hat)
+```
+
+2. Now use dplyr to add a confidence interval as two columns, call them lower and upper, to the object poll. Then use select to show the pollster, enddate, x_hat,lower, upper variables. Hint: define temporary columns x_hat and se_hat.
+
+```{r}
+poll <- polls %>%
+  mutate(x_hat = rawpoll_clinton/100) %>%
+  mutate(se_hat = sqrt(x_hat*(1-x_hat)/samplesize)) %>% 
+  mutate(lower = x_hat - 1.96*se_hat) %>% 
+  mutate(upper = x_hat + 1.96*se_hat) %>% 
+  select("pollster", "enddate", "x_hat", "lower", "upper")
+poll
+```
+
+3. The final tally for the popular vote was Clinton 48.2% and Trump 46.1%. Add a column, call it hit, to the previous table stating if the confidence interval included the true proportion p=0.482 or not.
+
+```{r}
+p <- 0.482
+poll <- poll %>% 
+  mutate(hit = ifelse(p < upper & p > lower, 1, 0))
+```
+
+4.  For the table you just created, what proportion of confidence intervals included p?
+
+```{r}
+sum(poll$hit)/length(poll$hit)
+```
+
+5. If these confidence intervals are constructed correctly, and the theory holds up, what proportion should include p?
+
+95%
+
+6. A much smaller proportion of the polls than expected produce confidence intervals containing p. If you look closely at the table, you will see that most polls that fail to include p are underestimating. The reason for this is undecided voters, individuals polled that do not yet know who they will vote for or do not want to say. Because, historically, undecideds divide evenly between the two main candidates on election day, it is more informative to estimate the spread or the difference between the proportion of two candidates d, which in this election was 0.482 - 0.461 = 0.021. Assume that there are only two parties and that  d=2p-1, redefine `polls` as below and re-do exercise 1, but for the difference.
+
+```{r}
+polls <- polls_us_election_2016 %>% 
+  filter(enddate >= "2016-10-31" & state == "U.S.")  %>%
+  mutate(d_hat = rawpoll_clinton / 100 - rawpoll_trump / 100)
+d_hat <- polls$d_hat[1]
+```
+
+
+```{r}
+se_hat <- sqrt(d_hat*(1-d_hat)/N)
+c(d_hat -1.96*se_hat, d_hat + 1.96 * se_hat)
+```
+
+7. Now repeat exercise 3, but for the difference.
+
+```{r}
+poll <- polls %>%
+  mutate(d_hat = rawpoll_clinton/100 - rawpoll_trump / 100) %>%
+  mutate(se_hat = sqrt(d_hat*(1-d_hat)/samplesize)) %>% 
+  mutate(lower = d_hat - 1.96*se_hat) %>% 
+  mutate(upper = d_hat + 1.96*se_hat) %>% 
+  select("pollster", "enddate", "d_hat", "lower", "upper")
+poll
+```
+
+```{r}
+d <- 0.021 
+poll <- poll %>% 
+  mutate(hit = ifelse(d < upper & d > lower, 1 ,0))
+```
+
+8. Now repeat exercise 4, but for the difference.
+
+```{r}
+sum(poll$d_hat)/length(poll$d_hat)
+```
+
+9. Although the proportion of confidence intervals goes up substantially, it is still lower than 0.95. In the next chapter, we learn the reason for this. To motivate this, make a plot of the error, the difference between each poll’s estimate and the actual  d = 0.021. Stratify by pollster.
+
+```{r}
+poll <- poll %>% 
+  mutate(estimate = d_hat - d)
+
+
+ggplot(poll, aes(pollster, estimate)) + 
+  geom_point() + 
+  labs(title = "Plot of Error")
+#theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 10))
+```
+
+10. Redo the plot that you made for exercise 9, but only for pollsters that took five or more polls.
+
+```{r}
+pol <- polls %>% 
+  filter(enddate - startdate > 5) %>% 
+  mutate(estimate = d_hat - d)
+
+ggplot(pol,aes(pollster, estimate)) +
+  geom_point() + 
+  labs(title = "Plot of Error", y = "pollster (polls>5)")
+```
+
 ## **15.8 Power**
 
 Pollsters are not successful at providing correct confidence intervals, but rather at predicting who will win. When we took a 25 bead sample size, the confidence interval for the spread:
@@ -617,3 +740,201 @@ The function `fisher.test` performs the inference calculations above:
 ```{r}
 fisher.test(tab, alternative="greater")$p.value
 ```
+
+## **15.10.3 Chi-square Test**
+
+Notice that, in a way, our funding rates example is similar to the Lady Tasting Tea. However, in the Lady Tasting Tea example, the number of blue and red beads is experimentally fixed and the number of answers given for each category is also fixed. This is because Fisher made sure there were four cups with milk poured before tea and four cups with milk poured after and the lady knew this, so the answers would also have to include four befores and four afters. If this is the case, the sum of the rows and the sum of the columns are fixed. This defines constraints on the possible ways we can fill the two by two table and also permits us to use the hypergeometric distribution. In general, this is not the case. Nonetheless, there is another approach, the Chi-squared test, which is described below.
+
+Imagine we have 290, 1,345, 177, 1,011 applicants, some are men and some are women and some get funded, whereas others don’t. We saw that the success rates for men and woman were:
+
+```{r}
+totals %>% summarize(percent_men = yes_men/(yes_men+no_men),
+                     percent_women = yes_women/(yes_women+no_women))
+
+```
+
+respectively. Would we see this again if we randomly assign funding at the overall rate:
+
+```{r}
+rate <- totals %>%
+  summarize(percent_total = 
+              (yes_men + yes_women)/
+              (yes_men + no_men +yes_women + no_women)) %>%
+  pull(percent_total)
+rate
+```
+
+The Chi-square test answers this question. The first step is to create the two-by-two data table:
+
+```{r}
+two_by_two <- data.frame(awarded = c("no", "yes"), 
+                     men = c(totals$no_men, totals$yes_men),
+                     women = c(totals$no_women, totals$yes_women))
+two_by_two
+```
+
+The general idea of the Chi-square test is to compare this two-by-two table to what you expect to see, which would be:
+
+```{r}
+data.frame(awarded = c("no", "yes"), 
+       men = (totals$no_men + totals$yes_men) * c(1 - rate, rate),
+       women = (totals$no_women + totals$yes_women) * c(1 - rate, rate))
+```
+
+We can see that more men than expected and fewer women than expected received funding. However, under the null hypothesis these observations are random variables. The Chi-square test tells us how likely it is to see a deviation this large or larger. This test uses an asymptotic result, similar to the CLT, related to the sums of independent binary outcomes. The R function `chisq.test` takes a two-by-two table and returns the results from the test:
+
+```{r}
+chisq_test <- two_by_two %>% select(-awarded) %>% chisq.test()
+```
+
+We see that the p-value is 0.0509:
+
+```{r}
+chisq_test$p.value
+```
+
+##**15.10.4 The odds ratio**
+
+An informative summary statistic associated with two-by-two tables is the odds ratio. Define the two variables as $X=1$ if you are a male and 0 otherwise, and $Y=1$ if you are funded and 0 otherwise. The odds of getting funded if you are a man is defined:
+
+$$Pr(Y=1|X=1)/Pr(Y=0|X=1)$$
+
+and can be computed like this:
+
+```{r}
+odds_men <- with(two_by_two, (men[2]/sum(men)) / (men[1]/sum(men)))
+odds_men
+```
+
+And the odds of being funded if you are a woman is:
+
+$$Pr(Y=1|X=0/Pr(Y=0|X=0))$$
+
+and can be computed like this:
+
+```{r}
+odds_women <- with(two_by_two, (women[2]/sum(women)) / (women[1]/sum(women)))
+odds_women
+```
+
+The odds ratio is the ratio for these two odds: how many times larger are the odds for men than for women?
+
+```{r}
+odds_men / odds_women
+```
+
+We often see two-by-two tables written out as
+
+|------------|Men|Women|
+|Awarded-----|-a-|--b--|
+|Not-Awarded-|-c-|--d--|
+
+In this case, the odds ratio is $\frac{a/c}{b/d}$ which is equivalent to $(ad)/(bc)$
+
+##**15.10.5 Confidence intervals for the odds ratio**
+
+Computing confidence intervals for the odds ratio is not mathematically straightforward. Unlike other statistics, for which we can derive useful approximations of their distributions, the odds ratio is not only a ratio, but a ratio of ratios. Therefore, there is no simple way of using, for example, the CLT.
+
+However, statistical theory tells us that when all four entries of the two-by-two table are large enough, then the log of the odds ratio is approximately normal with standard error
+
+$$\sqrt{1/a+1/b+1/c+1/d}$$
+
+This implies that a 95% confidence interval for the log odds ratio can be formed by:
+
+$$log(\frac{ad}{bc})±1.96\sqrt{1/a+1/b+1/c+1/d}$$
+
+By exponentiating these two numbers we can construct a confidence interval of the odds ratio.
+
+Using R we can compute this confidence interval as follows:
+
+```{r}
+#Textbook
+log_or <- log(odds_men / odds_women)
+se <- two_by_two %>% select(-awarded) %>%
+  summarize(se = sqrt(sum(1/men) + sum(1/women))) %>%
+  pull(se)
+ci <- log_or + c(-1,1) * qnorm(0.975) * se
+```
+
+```{r}
+#Using `mutate`
+log_or <- log(odds_men / odds_women)
+se <- two_by_two %>% select(-awarded) %>%
+  summarize(se = sqrt(sum(1/men) + sum(1/women))) %>%
+  mutate(ci = log_or + -1*qnorm(0.975)*se) %>% 
+  mutate(ci = log_or + qnorm(0.975)*se)
+```
+
+If we want to convert it back to the odds ratio scale, we can exponentiate:
+
+```{r}
+exp(ci)
+```
+
+Note that 1 is not included in the confidence interval which must mean that the p-value is smaller than 0.05. We can confirm this using:
+
+```{r}
+2*(1 - pnorm(log_or, 0, se$se))
+```
+
+This is a slightly different p-value than that with the Chi-square test. This is because we are using a different asymptotic approximation to the null distribution. To learn more about inference and asymptotic theory for odds ratio, consult the *Generalized Linear Models* book by McCullagh and Nelder.
+
+## **15.10.6 Small count correction**
+
+Note that the log odds ratio is not defined if any of the cells of the two-by-two table is 0. This is because if $a, b, c,$ or $d$ is 0, the $log(\frac{ad}{bc})$ is either the log of 0 or has a 0 in the denominator. For this situation, it is common practice to avoid 0s by adding 0.5 to each cell. This is referred to as the Haldane–Anscombe correction and has been shown, both in practice and theory, to work well.
+
+### **15.10.7 Large samples, small p-values**
+
+As mentioned earlier, reporting only p-values is not an appropriate way to report the results of data analysis. In scientific journals, for example, some studies seem to overemphasize p-values. Some of these studies have large sample sizes and report impressively small p-values. Yet when one looks closely at the results, we realize odds ratios are quite modest: barely bigger than 1. In this case the difference may not be *practically significant* or *scientifically significant*.
+
+Note that the relationship between odds ratio and p-value is not one-to-one. It depends on the sample size. So a very small p-value does not necessarily mean a very large odds ratio. Notice what happens to the p-value if we multiply our two-by-two table by 10, which does not change the odds ratio:
+
+```{r}
+two_by_two %>% select(-awarded) %>% 
+  mutate(men=men*10, women=women*10) %>% 
+  chisq.test() %>% .$p.value
+```
+
+##**15.11 Exercises**
+
+1. A famous athlete has an impressive career, winning 70% of her 500 career matches. However, this athlete gets criticized because in important events, such as the Olympics, she has a losing record of 8 wins and 9 losses. Perform a Chi-square test to determine if this losing record can be simply due to chance as opposed to not performing well under pressure.
+
+```{r}
+athlete <- data.frame(result = c("win", "lose"), usual = c(350, 150), olympic = c(8, 9))
+```
+
+```{r}
+athlete %>% select(-result) %>% chisq.test() %>% .$p.value
+```
+
+2. Why did we use the Chi-square test instead of Fisher’s exact test in the previous exercise?
+
+C. Because the sum of the rows and columns of the two-by-two table are not fixed so the hypergeometric distribution is not an appropriate assumption for the null hypothesis. For this reason, Fisher’s exact test is rarely applicable with observational data.
+
+3. Compute the odds ratio of “losing under pressure” along with a confidence interval.
+
+```{r}
+log_or <- log(350*9/150*8)
+se <- athlete %>% select(-result) %>% 
+  summarize(se = sqrt(1/350 + 1/9 + 1/150 + 1/8)) %>% 
+  pull(se)
+ci <- log_or + c(-1,1) * qnorm(0.975) * se
+exp(ci)
+```
+
+
+4. Notice that the p-value is larger than 0.05 but the 95% confidence interval does not include 1. What explains this?
+
+b. These are not t-tests so the connection between p-value and confidence intervals does not apply.
+
+```{r}
+2*(1 - pnorm(log_or, 0, se))
+```
+
+
+5. Multiply the two-by-two table by 2 and see if the p-value and confidence retrieval are a better match.
+
+```{r}
+athlete %>% select(-result) %>% mutate(usual = usual*2, olympic = olympic*2) %>% chisq.test() %>% .$p.value
+```
+
