@@ -19,7 +19,7 @@ Although typically the results of these polls are kept private, similar polls ar
 
 Real Clear Politics is an example of a news aggregator that organizes and publishes poll results. For example, they present the following poll results reporting estimates of the popular vote for the 2016 presidential election:
 
-\usepackage[table,xcdraw]{xcolor}
+$$\usepackage[table,xcdraw]{xcolor}
 \begin{table}[]
 \begin{tabular}{|l|l|l|l|l|l|l|}
 \hline
@@ -43,7 +43,7 @@ CBS News                                                & 11/2 - 11/6 & 1426 LV 
 \rowcolor[HTML]{EFEFEF} 
 Reuters                                                 & 11/2 - 11/6 & 2196 LV    & 2.3     & 44.0        & 39.0      & Clinton +5   \\ \hline
 \end{tabular}
-\end{table}
+\end{table}$$
 
 Although in the United States the popular vote does not determine the result of the presidential election, we will use it as an illustrative and simple example of how well polls work. Forecasting the election is a more complex process since it involves combining results from 50 states and DC and we describe it in Section 16.8.
 
