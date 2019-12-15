@@ -1,0 +1,194 @@
+---
+output: html_notebook
+---
+## Question: DDG2P - Candidate DDG2P genes for epilepsy regarded with recurring phenotypes and disease mim correlation with mutation consequence
+
+## **Introduction**
+
+Epilepsy is seen in children who have no other problems; however, epilepsy is common in children who have developmental disabilities. Approximately 30% of children with epilepsy have other developmental disabilities. In one study, children with Intellectual/Developmental Disability (IDD) and cerebral palsy had a 35% chance of developing epilepsy, children with IDD alone had an 8% chance, and children with a brain injury occurring after birth had s 75% chance. In general, the risk of a child with a developmental disability experiencing an unprovoked seizure by age 5 is about 4 times greater than in the general population. Due to this reason, I was wondering if there is any connotation between recurring symtops of epilepsy and development disorders. Throughout munging this dataset, it would be proper to draw a statistically significant conclusion in this question.
+
+## **Data Wrangling**
+
+prior to wragling DDG2P datasets, **tidyverse**, and **dplyr** were loaded to support munging data. 
+```{r}
+library(tidyverse, quietly = T)
+library(dplyr)
+```
+
+package **R.utils** was used to unpack gzip file so that the datasets can be easily transferred to table "DDG2P" by using read.csv function. argument 'remove' was added to keep the orginal data file intact.
+```{r}
+#install.packages("R.utils")
+library(R.utils)
+gunzip("DDG2P_26_9_2019.csv.gz", remove=FALSE)
+DDG2P = read.csv("DDG2P_26_9_2019.csv")
+```
+
+## **1 recurring gene.mim with mutation consequence**
+
+Since this assignment was primarily to search for candidate DDG2P genes for epilepsy, column "disease.name" was of the most importance to begin with.
+
+As the column "disease.name" had lower-cases, upper-cases, and numbers, function "tolower" was used to range all alphabets in lower-cases. Then function "mutate" added a new column called "diseasename", which only contains lower-cases and numbers.
+
+To figure out genes with disease type "epilepsy", new column needs to be skimmed through so that what types of function could easily sort out "epilepsy". "diseasename" had several chracters that stand for "epilepsy" including both "epileptic" and "epilepsy"
+
+Initial attempt was with the code "filter (diseasename == "epilep")". However, "==" only works when the argument literally matches to the findings in row. For this type of search, function "str_detect" does figure out which characters include certain words. both "epilepsy" and "epileptic" contain character "epilep" so "str_detect" turned out as expected and this whole code was saved into data frame called "epilepsy". The following #1 and #2 show the code for attempts to produce new data frame "epilepsy"
+
+```{r}
+#1
+epilepsy = DDG2P %>% 
+  mutate(diseasename = tolower(disease.name)) %>% 
+  filter(diseasename == "epilep")
+```
+
+```{r}
+#2
+library(stringr)
+epilepsy = DDG2P %>%
+  mutate(diseasename = tolower(disease.name)) %>% 
+  filter(str_detect(diseasename,"epilep"))
+```
+
+```{r}
+#This only takes values with number and saves to ep2 dataframe.
+ep2 = epilepsy %>% filter(str_detect(gene.mim, "[:digit:]"))
+```
+
+```{r}
+# counted frequency of each gene mim and separated by their omim number setting their names according to OMIM nomenclature.
+occur_mim <- data.frame(table(ep2$gene.mim))
+recur = occur_mim %>% filter(Freq > 0)
+colnames(recur)=c("gene.mim",'frequency')
+recur$gene.mim = as.numeric(levels(recur$gene.mim))[recur$gene.mim]
+fm <- recur %>% 
+  mutate(mim_names = case_when(gene.mim <200000 ~ "autosomal", gene.mim> 300000 & gene.mim <400000 ~ "x-linked", gene.mim > 600000 ~ "autosomal_after94"))
+```
+
+```{r}
+# added mutation consequences of gene mim pertaining to original data source
+fm_key <- ep2 %>% select(gene.mim, mutation.consequence)
+fm_key$gene.mim = as.numeric(levels(fm_key$gene.mim))[fm_key$gene.mim]
+fm_final <- left_join(fm_key, fm, by = "gene.mim") %>% 
+  distinct_all()
+fm_final <- fm_final[!duplicated(fm_final$gene.mim),]
+```
+
+```{r}
+fm_final %>% ggplot(aes(mutation.consequence, frequency)) +
+  geom_jitter(aes(alpha = 0.35, color = mim_names)) + 
+  facet_wrap(.~mim_names) +
+  theme(panel.grid.major = element_line(color = "gray"), legend.position = "none", panel.grid.minor = element_line("gray"), axis.text.x = element_text(angle = 45, hjust = 1, size = 8)) +
+  labs(x = "Mutation Consequence", y= "Frequency", title = "Gene mim correlation with mutation consequence")
+```
+
+## **2 Recurring Phenotypes - using hpo table**
+
+```{r}
+#try to rule out any NAs included in the column
+phen = epilepsy %>% filter(str_detect(phenotypes, "[:digit:]"))
+
+#created a list out of phenotypes data with separated elements
+phen2 <- with(phen, strsplit(as.character(phenotypes), ';'), )
+
+#intially thought the data "table.hpo_obo_20190924.txt" was large enough to use this readr, but then later figured out this was unnecessary. Nonetheless, kept the same code line to include the originality.
+library(readr)
+hpo <- read.delim(file = "table.hpo_obo_20190924.txt", sep = '\t', header = TRUE, col.names = c('id', 'name'))
+```
+
+
+```{r}
+#first attempt to make the phenotype list into dataframe.
+library(data.table)
+phen3 <- sapply(phen2, "length<-", max(length(1)))
+```
+
+```{r}
+#second(this worked!!)
+library(stringi)
+phen3 <- as.data.frame(stri_list2matrix(phen2, byrow=TRUE))
+x <- c(1:23)
+colnames(phen3)= c(x)
+```
+
+```{r}
+#install.packages("qdapTools")
+library(qdapTools)
+phen5 <- phen3
+```
+
+```{r}
+substi <- phen3 %>% gather(id, names, starts_with("HP:"),ends_with("[0-9]"))
+substi1 <- stack(substi)
+```
+
+```{r}
+for (i in 1:23){
+  substi[['i']] <- gsub("HP:", "", substi[['i']])
+}
+```
+
+```{r}
+length(hpo$id)
+class(phen3$'1')
+class(hpo$id)
+
+pheno <- function(i){
+  phen3[['i']] <- phen3[['i']] %lc+% hpo
+}
+pheno(1)
+```
+>>hpo table had 14647 rows and 2 columns. Still, for some reasons, it was not able to replace phen3 which has 74 rows and 23 columns.
+
+>>I was not able to set this function working so typed this manually.. Changes should be made later on to solve this.
+
+```{r}
+phen3$`1`<-phen3$ `1` %lc+% hpo
+phen3$`2`<-phen3$ `2` %lc+% hpo
+phen3$`3`<-phen3$ `3` %lc+% hpo
+phen3$`4`<-phen3$ `4` %lc+% hpo
+phen3$`5`<-phen3$ `5` %lc+% hpo
+phen3$`6`<-phen3$ `6` %lc+% hpo
+phen3$`7`<-phen3$ `7` %lc+% hpo
+phen3$`8`<-phen3$ `8` %lc+% hpo
+phen3$`9`<-phen3$ `9` %lc+% hpo
+phen3$`10`<-phen3$ `10` %lc+% hpo
+phen3$`11`<-phen3$ `11` %lc+% hpo
+phen3$`12`<-phen3$ `12` %lc+% hpo
+phen3$`13`<-phen3$ `13` %lc+% hpo
+phen3$`14`<-phen3$ `14` %lc+% hpo
+phen3$`15`<-phen3$ `15` %lc+% hpo
+phen3$`16`<-phen3$ `16` %lc+% hpo
+phen3$`17`<-phen3$ `17` %lc+% hpo
+phen3$`18`<-phen3$ `18` %lc+% hpo
+phen3$`19`<-phen3$ `19` %lc+% hpo
+phen3$`20`<-phen3$ `20` %lc+% hpo
+phen3$`21`<-phen3$ `21` %lc+% hpo
+phen3$`22`<-phen3$ `22` %lc+% hpo
+phen3$`23`<-phen3$ `23` %lc+% hpo
+```
+
+```{r}
+# here, columns were stacked to count the number of each phenotypes and trivial numbers were ruled out to leave statistically significant numbers only.
+sph <- stack(phen3) %>% na.omit()
+sph$ind <- NULL
+sph2 <- data.frame(table(sph)) %>% 
+  filter(Freq >= 8) %>% 
+  mutate(frequency = sort(desc(-Freq)))
+colnames(sph2) <- c("phenotypes", "fre", "frequency")
+levels(sph2$phenotypes) <- gsub(" ", "\n",levels(sph2$phenotypes))
+
+```
+
+```{r}
+sph2 %>% 
+  ggplot(aes(x = phenotypes, y= frequency), legend = FALSE) +
+  geom_bar(stat = "identity", color = "red") +
+  labs(title = "Epilepsy-related phenotypes frequency", x = "phenotypes", y = "Frequency") +
+  theme(axis.text.x = element_text(angle = 47, hjust = 0.8, size = 8)) + 
+  theme(legend.position= "none")
+```
+
+## **Conclusion**
+
+In the section "recurring gene.mim", autosomal mendelian inheritance in man was with the most quantity as it appears on the graph. Even though there exists difference between autosomal recorded before 1994 and after 1994, noting that ones recorded after 1994 showed greater population. 
+
+In the section "recurring phenotypes", phenotypes including "seizures", "intellectual disabillity" ranked highest out of 12 variables. Through data munging, redundant data included in the phenotypes dataframe was deleted to ensure the significance of phenotypes graph.
